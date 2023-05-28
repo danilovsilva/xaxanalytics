@@ -71,8 +71,12 @@ class CsGoDemoParser():
         self.lstats = list(pstats.values()) # list with dicts with all stats from players
 
         grenade_damage = self.get_grenade_damage(self.data)
+        hsDeaths = self.get_headshot_deaths(self.data)
+        first_kills = self.get_first_kills(self.data)
 
         self.lstats = self.add_value_by_steamName(self.lstats, grenade_damage)
+        self.lstats = self.add_value_by_steamName(self.lstats, hsDeaths)
+        self.lstats = self.add_value_by_steamName(self.lstats, first_kills)
 
         if ret_type == "json":
             result = {
@@ -172,6 +176,36 @@ class CsGoDemoParser():
         dmg = dmg.groupby(['attackerName','weapon'])['hpDamageTaken'].sum().reset_index(name="hpDamageTaken")
         dmg = dmg.rename(columns={'attackerName': 'playerName', 'weapon': 'key', 'hpDamageTaken': 'value'})
         return dmg.to_dict('records')
+    
+    def get_headshot_deaths(self, data):
+        headshot_deaths = pd.DataFrame()
+        for r in range(len(data['gameRounds'])):
+            df = pd.DataFrame(data['gameRounds'][r]['kills'])
+            df = df.loc[df['isHeadshot'] == True, ['isHeadshot', 'victimName']]
+            headshot_deaths = pd.concat([headshot_deaths, df])
+
+        headshot_deaths = headshot_deaths.groupby('victimName')['isHeadshot'].count().reset_index(name="isHeadshot")
+        headshot_deaths['hsDeaths'] = "hsDeaths"
+        headshot_deaths = headshot_deaths.rename(columns={'victimName': 'playerName', 'hsDeaths': 'key', 'isHeadshot': 'value'})
+        return headshot_deaths.to_dict('records')
+    
+    def get_first_kills(self, data):
+        first_kills = pd.DataFrame()
+        for r in range(len(data['gameRounds'])):
+            df = pd.DataFrame(data['gameRounds'][r]['kills'])
+            df = df.loc[df['isFirstKill'] == True, ['attackerName', 'attackerSide', 'victimName', 'victimSide', 'isFirstKill']]
+            first_kills = pd.concat([first_kills, df])
+
+        first_kills_agg = first_kills.groupby(['attackerName', 'attackerSide'])['isFirstKill'].count().reset_index(name="isFirstKill")
+        first_kills_agg['attackerSide'] = np.where(first_kills_agg['attackerSide'] == 'CT', 'firstKillsCt', 'firstKillsTr')        
+        first_kills_agg = first_kills_agg.rename(columns={'attackerName': 'playerName', 'attackerSide': 'key', 'isFirstKill': 'value'})
+        
+        first_deaths_agg = first_kills.groupby(['victimName', 'victimSide'])['isFirstKill'].count().reset_index(name="isFirstKill")
+        first_deaths_agg['victimSide'] = np.where(first_deaths_agg['victimSide'] == 'CT', 'firstDeathsCt', 'firstDeathsTr')
+        first_deaths_agg = first_deaths_agg.rename(columns={'victimName': 'playerName', 'victimSide': 'key', 'isFirstKill': 'value'})
+
+        first_kills = pd.concat([first_kills_agg, first_deaths_agg])        
+        return first_kills.to_dict('records')
 
     def main(self):
         """
