@@ -67,6 +67,8 @@ class CsGoDemoParser():
             "teamLoserPlayers": team_loser_players,
         }
 
+        self.match_duration = self.get_match_duration(int(self.data['playbackTicks'])/int(self.data['tickRate']))
+
         pstats = player_stats(self.data["gameRounds"], return_type=ret_type)
         self.lstats = list(pstats.values()) # list with dicts with all stats from players
 
@@ -133,11 +135,12 @@ class CsGoDemoParser():
 
         return file_hash
 
-    def criar_json(self, match_id, match_date, map_name, match_stats, player_stats):
+    def criar_json(self, match_id, match_date, map_name, match_duration, match_stats, player_stats):
         data = {
             "matchID": match_id,
             "matchDate": match_date,
             "mapName": map_name,
+            "matchDuration": match_duration,
             "matchStats": match_stats,
             "playersStats": player_stats
         }
@@ -176,7 +179,7 @@ class CsGoDemoParser():
         dmg = dmg.groupby(['attackerName','weapon'])['hpDamageTaken'].sum().reset_index(name="hpDamageTaken")
         dmg = dmg.rename(columns={'attackerName': 'playerName', 'weapon': 'key', 'hpDamageTaken': 'value'})
         return dmg.to_dict('records')
-    
+
     def get_headshot_deaths(self, data):
         headshot_deaths = pd.DataFrame()
         for r in range(len(data['gameRounds'])):
@@ -188,7 +191,7 @@ class CsGoDemoParser():
         headshot_deaths['hsDeaths'] = "hsDeaths"
         headshot_deaths = headshot_deaths.rename(columns={'victimName': 'playerName', 'hsDeaths': 'key', 'isHeadshot': 'value'})
         return headshot_deaths.to_dict('records')
-    
+
     def get_first_kills(self, data):
         first_kills = pd.DataFrame()
         for r in range(len(data['gameRounds'])):
@@ -197,19 +200,30 @@ class CsGoDemoParser():
             first_kills = pd.concat([first_kills, df])
 
         first_kills_agg = first_kills.groupby(['attackerName', 'attackerSide'])['isFirstKill'].count().reset_index(name="isFirstKill")
-        first_kills_agg['attackerSide'] = np.where(first_kills_agg['attackerSide'] == 'CT', 'firstKillsCt', 'firstKillsTr')        
+        first_kills_agg['attackerSide'] = np.where(first_kills_agg['attackerSide'] == 'CT', 'firstKillsCt', 'firstKillsTr')
         first_kills_agg = first_kills_agg.rename(columns={'attackerName': 'playerName', 'attackerSide': 'key', 'isFirstKill': 'value'})
-        
+
         first_deaths_agg = first_kills.groupby(['victimName', 'victimSide'])['isFirstKill'].count().reset_index(name="isFirstKill")
         first_deaths_agg['victimSide'] = np.where(first_deaths_agg['victimSide'] == 'CT', 'firstDeathsCt', 'firstDeathsTr')
         first_deaths_agg = first_deaths_agg.rename(columns={'victimName': 'playerName', 'victimSide': 'key', 'isFirstKill': 'value'})
 
-        first_kills = pd.concat([first_kills_agg, first_deaths_agg])        
+        first_kills = pd.concat([first_kills_agg, first_deaths_agg])
         return first_kills.to_dict('records')
+
+    def get_match_duration(self, seconds):
+        hours = int(seconds // 3600)
+        minutes = int((seconds % 3600) // 60)
+        seconds = int(seconds % 60)
+        return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
 
     def main(self):
         """
         This method will do everything to recover all data and analytical functions
         """
         self.get_player_stats()
-        self.output_json(self.criar_json(self.match_id,self.match_date,self.data["mapName"],self.match_stats,self.lstats))
+        self.output_json(self.criar_json(self.match_id,
+                                         self.match_date,
+                                         self.data["mapName"],
+                                         self.match_duration,
+                                         self.match_stats,
+                                         self.lstats))
