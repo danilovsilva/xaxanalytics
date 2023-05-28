@@ -1,5 +1,7 @@
 from awpy import DemoParser
 from awpy.analytics.stats import player_stats
+import pandas as pd
+import numpy as np
 import json
 
 # Set the parse_rate equal to the tick rate at which you would like to parse the frames of the demo.
@@ -11,9 +13,10 @@ class CsGoDemoParser():
 
     def __init__(self,  demo_file, demo_path="demos/", tick_rate=128):
         """
-        @demo_path (String): The path of the file to be analyzed (e.g. "C:/Program Files (x86)/Steam/steamapps/common/Counter-Strike Global Offensive/csgo/")
-        @demo_file (String): The file name (e.g. "pug_de_overpass_2023-05-26_17.dem")
-        @tick_rate (Integer): Server tick rate of the demo
+        Retrieves player stats and match information.
+
+        @ret_type (str): The return type of player stats ('json' as default).
+        @return (dict or str): Player stats in the specified return type.
         """
         self.output = {}
         self.match_date = self.get_date_from_demofile(demo_path+demo_file)
@@ -32,33 +35,56 @@ class CsGoDemoParser():
         @return (@ret_type): The return type depends on the ret_type parameter (json as default)
         """
         self.data = self.demo_parser.parse()
-        pstats = player_stats(self.data["gameRounds"], return_type=ret_type)
+        last_round = self.data['gameRounds'][-1]
 
-        if self.data['gameRounds'][len(self.data['gameRounds'])-1]['winningSide'] == 'CT':
-            self.match_stats = {
-                "teamWinnerName": self.data['gameRounds'][len(self.data['gameRounds'])-1]['ctTeam'],
-                "teamWinnerSide": 'CT',
-                "teamWinnerScore": self.data['gameRounds'][len(self.data['gameRounds'])-1]['endCTScore'],
-                "teamWinnerPlayers": self.data['gameRounds'][len(self.data['gameRounds'])-1]['ctSide']['players'],
-                "teamLoserName": self.data['gameRounds'][len(self.data['gameRounds'])-1]['tTeam'],
-                "teamLoserSide": 'T',
-                "teamLoserScore": self.data['gameRounds'][len(self.data['gameRounds'])-1]['endTScore'],
-                "teamLoserPlayers": self.data['gameRounds'][len(self.data['gameRounds'])-1]['tSide']['players'],
-            }
+        if last_round['winningSide'] == 'CT':
+            team_winner_name = last_round['ctTeam']
+            team_winner_side = 'CT'
+            team_winner_score = last_round['endCTScore']
+            team_winner_players = last_round['ctSide']['players']
+            team_loser_name = last_round['tTeam']
+            team_loser_side = 'T'
+            team_loser_score = last_round['endTScore']
+            team_loser_players = last_round['tSide']['players']
         else:
-            self.match_stats = {
-                "teamWinnerName": self.data['gameRounds'][len(self.data['gameRounds'])-1]['tTeam'],
-                "teamWinnerSide": 'T',
-                "teamWinnerScore": self.data['gameRounds'][len(self.data['gameRounds'])-1]['endTScore'],
-                "teamWinnerPlayers": self.data['gameRounds'][len(self.data['gameRounds'])-1]['tSide']['players'],
-                "teamLoserName": self.data['gameRounds'][len(self.data['gameRounds'])-1]['ctTeam'],
-                "teamLoserSide": 'CT',
-                "teamLoserScore": self.data['gameRounds'][len(self.data['gameRounds'])-1]['endCTScore'],
-                "teamLoserPlayers": self.data['gameRounds'][len(self.data['gameRounds'])-1]['ctSide']['players'],
-            }
+            team_winner_name = last_round['tTeam']
+            team_winner_side = 'T'
+            team_winner_score = last_round['endTScore']
+            team_winner_players = last_round['tSide']['players']
+            team_loser_name = last_round['ctTeam']
+            team_loser_side = 'CT'
+            team_loser_score = last_round['endCTScore']
+            team_loser_players = last_round['ctSide']['players']
 
+        self.match_stats = {
+            "teamWinnerName": team_winner_name,
+            "teamWinnerSide": team_winner_side,
+            "teamWinnerScore": team_winner_score,
+            "teamWinnerPlayers": team_winner_players,
+            "teamLoserName": team_loser_name,
+            "teamLoserSide": team_loser_side,
+            "teamLoserScore": team_loser_score,
+            "teamLoserPlayers": team_loser_players,
+        }
+
+        pstats = player_stats(self.data["gameRounds"], return_type=ret_type)
         self.lstats = list(pstats.values()) # list with dicts with all stats from players
-        return pstats
+
+        grenade_damage = self.get_grenade_damage(self.data)
+
+        self.lstats = self.add_value_by_steamName(self.lstats, grenade_damage)
+
+        if ret_type == "json":
+            result = {
+                "matchID": self.data["matchID"],
+                "matchDate": self.match_date,
+                "mapName": self.data["mapName"],
+                "matchStats": self.match_stats,
+                "playersStats": pstats
+            }
+            return json.dumps(result)
+        else:
+            return pstats
 
     def output_json(self, data):
         """
@@ -114,6 +140,25 @@ class CsGoDemoParser():
 
         return data
 
+    def add_value_by_steamName(self, lstats, records):
+        for record in records:
+            for player in lstats:
+                if player['playerName'] == record['attackerName']:
+                    player[record['weapon']] = record['hpDamageTaken']
+                    break
+        return lstats
+
+    def get_grenade_damage(self, data):
+        sum_damage = pd.DataFrame()
+        for r in range(len(data['gameRounds'])):
+            df = pd.DataFrame(data['gameRounds'][r]['damages'])
+            df = df.loc[df['weaponClass'] == 'Grenade', ['attackerName', 'weapon', 'hpDamageTaken']]
+            df['weapon'] = np.where(df['weapon'].isin(['Incendiary Grenade', 'Molotov']), 'fireDamage', df['weapon'])
+            df['weapon'] = np.where(df['weapon'] == 'HE Grenade', 'heDamage', df['weapon'])
+            sum_damage = pd.concat([sum_damage, df])
+
+        sum_damage = sum_damage.groupby(['attackerName','weapon'])['hpDamageTaken'].sum().reset_index(name="hpDamageTaken")
+        return sum_damage.to_dict('records')
 
     def main(self):
         """
