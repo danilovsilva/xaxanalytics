@@ -141,24 +141,37 @@ class CsGoDemoParser():
         return data
 
     def add_value_by_steamName(self, lstats, records):
+        '''
+        This method will add key and value to a dict, using the playerName as filter.
+
+        @lstats (list): List of player stats.
+        @records (Dict): Dict of keys and values to add in lstats.
+        Example:
+            {'playerName': 'Aquino.Amt',
+            'key': 'heDamage',
+            'value': 405}
+        '''
         for record in records:
             for player in lstats:
-                if player['playerName'] == record['attackerName']:
-                    player[record['weapon']] = record['hpDamageTaken']
+                if player['playerName'] == record['playerName']:
+                    player[record['key']] = record['value']
                     break
         return lstats
 
     def get_grenade_damage(self, data):
-        sum_damage = pd.DataFrame()
+        dmg = pd.DataFrame()
         for r in range(len(data['gameRounds'])):
             df = pd.DataFrame(data['gameRounds'][r]['damages'])
             df = df.loc[df['weaponClass'] == 'Grenade', ['attackerName', 'weapon', 'hpDamageTaken']]
             df['weapon'] = np.where(df['weapon'].isin(['Incendiary Grenade', 'Molotov']), 'fireDamage', df['weapon'])
             df['weapon'] = np.where(df['weapon'] == 'HE Grenade', 'heDamage', df['weapon'])
-            sum_damage = pd.concat([sum_damage, df])
+            df['weapon'] = np.where(df['weapon'] == 'Smoke Grenade', 'smokeDamage', df['weapon'])
+            df['weapon'] = np.where(df['weapon'] == 'Flash Grenade', 'flashDamage', df['weapon'])
+            dmg = pd.concat([dmg, df])
 
-        sum_damage = sum_damage.groupby(['attackerName','weapon'])['hpDamageTaken'].sum().reset_index(name="hpDamageTaken")
-        return sum_damage.to_dict('records')
+        dmg = dmg.groupby(['attackerName','weapon'])['hpDamageTaken'].sum().reset_index(name="hpDamageTaken")
+        dmg = dmg.rename(columns={'attackerName': 'playerName', 'weapon': 'key', 'hpDamageTaken': 'value'})
+        return dmg.to_dict('records')
 
     def main(self):
         """

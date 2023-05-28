@@ -1,5 +1,5 @@
 from parser_main import CsGoDemoParser
 
-a = CsGoDemoParser(demo_file="pug_de_anubis_2023-04-27_23.dem")
+a = CsGoDemoParser(demo_file="pug_de_inferno_2023-05-27_01.dem")
 a.main()
 print()
