@@ -67,10 +67,12 @@ class CsGoDemoParser():
             "teamLoserPlayers": team_loser_players,
         }
 
-        self.match_duration = self.get_match_duration(int(self.data['playbackTicks'])/int(self.data['tickRate']))
+        self.match_duration = self.get_match_duration(
+            int(self.data['playbackTicks'])/int(self.data['tickRate']))
 
         pstats = player_stats(self.data["gameRounds"], return_type=ret_type)
-        self.lstats = list(pstats.values()) # list with dicts with all stats from players
+        # list with dicts with all stats from players
+        self.lstats = list(pstats.values())
 
         grenade_damage = self.get_grenade_damage(self.data)
         hsDeaths = self.get_headshot_deaths(self.data)
@@ -99,7 +101,7 @@ class CsGoDemoParser():
         @data (String): The data to be written
         @file_path (String): The path and name of the file to be written
         """
-        file_path="./output/payload_"+self.match_id+".json"
+        file_path = "./output/payload_"+self.match_id+".json"
         with open(file_path, "w") as json_file:
             json.dump(data, json_file)
 
@@ -167,18 +169,56 @@ class CsGoDemoParser():
 
     def get_grenade_damage(self, data):
         dmg = pd.DataFrame()
+
         for r in range(len(data['gameRounds'])):
             df = pd.DataFrame(data['gameRounds'][r]['damages'])
-            df = df.loc[df['weaponClass'] == 'Grenade', ['attackerName', 'weapon', 'hpDamageTaken']]
-            df['weapon'] = np.where(df['weapon'].isin(['Incendiary Grenade', 'Molotov']), 'fireDamage', df['weapon'])
-            df['weapon'] = np.where(df['weapon'] == 'HE Grenade', 'heDamage', df['weapon'])
-            df['weapon'] = np.where(df['weapon'] == 'Smoke Grenade', 'smokeDamage', df['weapon'])
-            df['weapon'] = np.where(df['weapon'] == 'Flash Grenade', 'flashDamage', df['weapon'])
+            df = df.loc[df['weaponClass'] == 'Grenade', [
+                'attackerName', 'weapon', 'hpDamageTaken']]
+            df['weapon'] = np.where(df['weapon'].isin(
+                ['Incendiary Grenade', 'Molotov']), 'fireDamage', df['weapon'])
+            df['weapon'] = np.where(
+                df['weapon'] == 'HE Grenade', 'heDamage', df['weapon'])
+            df['weapon'] = np.where(
+                df['weapon'] == 'Smoke Grenade', 'smokeDamage', df['weapon'])
+            df['weapon'] = np.where(
+                df['weapon'] == 'Flash Grenade', 'flashDamage', df['weapon'])
             dmg = pd.concat([dmg, df])
 
-        dmg = dmg.groupby(['attackerName','weapon'])['hpDamageTaken'].sum().reset_index(name="hpDamageTaken")
-        dmg = dmg.rename(columns={'attackerName': 'playerName', 'weapon': 'key', 'hpDamageTaken': 'value'})
+        dmg = dmg.groupby(['attackerName', 'weapon'])[
+            'hpDamageTaken'].sum().reset_index(name="hpDamageTaken")
+
+        dmg = self.pivoting_unpivoting(
+            dmg,
+            ['attackerName', 'weapon', 'hpDamageTaken']
+        )
+
         return dmg.to_dict('records')
+
+    def pivoting_unpivoting(self, df, columns=[]):
+        """
+        Renamed, Pivoting and filling NA values and unpivoting to set values
+
+        @df (pandas dataframe): Dataframe to be changed
+        @columns (list): lista with columns to be renamed
+            Example: ['attackerName', 'weapon', 'hpDamageTaken']
+
+        @return (pandas dataframe): unpivoted and filled NA values
+            Example: df['playerName', 'key', 'value']
+        """
+        df = df.rename(
+            columns={columns[0]: 'playerName',
+                     columns[1]: 'key',
+                     columns[2]: 'value'})
+
+        df = df.pivot(index='playerName',
+                      columns='key',
+                      values='value').fillna(0)
+
+        df = df.reset_index().melt(id_vars='playerName',
+                                   var_name='key',
+                                   value_name='value')
+
+        return df
 
     def get_headshot_deaths(self, data):
         headshot_deaths = pd.DataFrame()
@@ -187,25 +227,41 @@ class CsGoDemoParser():
             df = df.loc[df['isHeadshot'] == True, ['isHeadshot', 'victimName']]
             headshot_deaths = pd.concat([headshot_deaths, df])
 
-        headshot_deaths = headshot_deaths.groupby('victimName')['isHeadshot'].count().reset_index(name="isHeadshot")
+        headshot_deaths = headshot_deaths.groupby(
+            'victimName')['isHeadshot'].count().reset_index(name="isHeadshot")
         headshot_deaths['hsDeaths'] = "hsDeaths"
-        headshot_deaths = headshot_deaths.rename(columns={'victimName': 'playerName', 'hsDeaths': 'key', 'isHeadshot': 'value'})
+
+        headshot_deaths = self.pivoting_unpivoting(
+            headshot_deaths,
+            ['victimName', 'hsDeaths', 'isHeadshot']
+        )
         return headshot_deaths.to_dict('records')
 
     def get_first_kills(self, data):
         first_kills = pd.DataFrame()
         for r in range(len(data['gameRounds'])):
             df = pd.DataFrame(data['gameRounds'][r]['kills'])
-            df = df.loc[df['isFirstKill'] == True, ['attackerName', 'attackerSide', 'victimName', 'victimSide', 'isFirstKill']]
+            df = df.loc[df['isFirstKill'] == True, [
+                'attackerName', 'attackerSide', 'victimName', 'victimSide', 'isFirstKill']]
             first_kills = pd.concat([first_kills, df])
 
-        first_kills_agg = first_kills.groupby(['attackerName', 'attackerSide'])['isFirstKill'].count().reset_index(name="isFirstKill")
-        first_kills_agg['attackerSide'] = np.where(first_kills_agg['attackerSide'] == 'CT', 'firstKillsCt', 'firstKillsTr')
-        first_kills_agg = first_kills_agg.rename(columns={'attackerName': 'playerName', 'attackerSide': 'key', 'isFirstKill': 'value'})
+        first_kills_agg = first_kills.groupby(['attackerName', 'attackerSide'])[
+            'isFirstKill'].count().reset_index(name="isFirstKill")
+        first_kills_agg['attackerSide'] = np.where(
+            first_kills_agg['attackerSide'] == 'CT', 'firstKillsCt', 'firstKillsTr')
+        first_kills_agg = self.pivoting_unpivoting(
+            first_kills_agg,
+            ['attackerName', 'attackerSide', 'isFirstKill']
+        )
 
-        first_deaths_agg = first_kills.groupby(['victimName', 'victimSide'])['isFirstKill'].count().reset_index(name="isFirstKill")
-        first_deaths_agg['victimSide'] = np.where(first_deaths_agg['victimSide'] == 'CT', 'firstDeathsCt', 'firstDeathsTr')
-        first_deaths_agg = first_deaths_agg.rename(columns={'victimName': 'playerName', 'victimSide': 'key', 'isFirstKill': 'value'})
+        first_deaths_agg = first_kills.groupby(['victimName', 'victimSide'])[
+            'isFirstKill'].count().reset_index(name="isFirstKill")
+        first_deaths_agg['victimSide'] = np.where(
+            first_deaths_agg['victimSide'] == 'CT', 'firstDeathsCt', 'firstDeathsTr')
+        first_deaths_agg = self.pivoting_unpivoting(
+            first_deaths_agg,
+            ['victimName', 'victimSide', 'isFirstKill']
+        )
 
         first_kills = pd.concat([first_kills_agg, first_deaths_agg])
         return first_kills.to_dict('records')
