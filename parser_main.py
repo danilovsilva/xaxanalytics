@@ -322,15 +322,15 @@ class CsGoDemoParser():
 
     def validate_tags(self, lstats):
         for p in range(len(lstats)):
-            lstats[p]['firstDeathsCt'] = int(lstats[0].get('firstDeathsCt', '0'))
-            lstats[p]['firstDeathsTr'] = int(lstats[0].get('firstDeathsTr', '0'))
-            lstats[p]['firstKillsCt'] = int(lstats[0].get('firstKillsCt', '0'))
-            lstats[p]['firstKillsTr'] = int(lstats[0].get('firstKillsTr', '0'))
-            lstats[p]['hsDeaths'] = int(lstats[0].get('hsDeaths', '0'))
-            lstats[p]['heDamage'] = int(lstats[0].get('heDamage', '0'))
-            lstats[p]['fireDamage'] = int(lstats[0].get('fireDamage', '0'))
-            lstats[p]['weaponKills'] = lstats[0].get('weaponKills', '{}')
-            lstats[p]['weaponDeaths'] = lstats[0].get('weaponDeaths', '{}')
+            lstats[p]['firstDeathsCt'] = int(lstats[p].get('firstDeathsCt', '0'))
+            lstats[p]['firstDeathsTr'] = int(lstats[p].get('firstDeathsTr', '0'))
+            lstats[p]['firstKillsCt'] = int(lstats[p].get('firstKillsCt', '0'))
+            lstats[p]['firstKillsTr'] = int(lstats[p].get('firstKillsTr', '0'))
+            lstats[p]['hsDeaths'] = int(lstats[p].get('hsDeaths', '0'))
+            lstats[p]['heDamage'] = int(lstats[p].get('heDamage', '0'))
+            lstats[p]['fireDamage'] = int(lstats[p].get('fireDamage', '0'))
+            lstats[p]['weaponKills'] = lstats[p].get('weaponKills', '{}')
+            lstats[p]['weaponDeaths'] = lstats[p].get('weaponDeaths', '{}')
         return lstats
 
     def main(self):
