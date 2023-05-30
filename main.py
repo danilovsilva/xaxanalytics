@@ -37,4 +37,3 @@ for arquivo in arquivos:
 #         print("Arquivo JSON enviado com sucesso.")
 #     else:
 #         print("Erro ao enviar o arquivo JSON:", response.text)
-
