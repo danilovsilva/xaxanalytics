@@ -1,5 +1,5 @@
 from awpy import DemoParser
-from awpy.analytics.stats import player_stats
+from lib.custom_stats import player_stats
 import pandas as pd
 import numpy as np
 import json
@@ -176,16 +176,23 @@ class CsGoDemoParser():
 
         for r in range(len(data['gameRounds'])):
             df = pd.DataFrame(data['gameRounds'][r]['damages'])
-            df = df.loc[df['weaponClass'] == 'Grenade', ['attackerName', 'weapon', 'hpDamageTaken']]
-            df['weapon'] = np.where(df['weapon'].isin(['Incendiary Grenade', 'Molotov']), 'fireDamage', df['weapon'])
-            df['weapon'] = np.where(df['weapon'] == 'HE Grenade', 'heDamage', df['weapon'])
-            df['weapon'] = np.where(df['weapon'] == 'Smoke Grenade', 'smokeDamage', df['weapon'])
-            df['weapon'] = np.where(df['weapon'] == 'Flash Grenade', 'flashDamage', df['weapon'])
+            df = df.loc[df['weaponClass'] == 'Grenade', [
+                'attackerName', 'weapon', 'hpDamageTaken']]
+            df['weapon'] = np.where(df['weapon'].isin(
+                ['Incendiary Grenade', 'Molotov']), 'fireDamage', df['weapon'])
+            df['weapon'] = np.where(
+                df['weapon'] == 'HE Grenade', 'heDamage', df['weapon'])
+            df['weapon'] = np.where(
+                df['weapon'] == 'Smoke Grenade', 'smokeDamage', df['weapon'])
+            df['weapon'] = np.where(
+                df['weapon'] == 'Flash Grenade', 'flashDamage', df['weapon'])
             dmg = pd.concat([dmg, df])
 
-        dmg = dmg.groupby(['attackerName', 'weapon'])['hpDamageTaken'].sum().reset_index(name="hpDamageTaken")
+        dmg = dmg.groupby(['attackerName', 'weapon'])[
+            'hpDamageTaken'].sum().reset_index(name="hpDamageTaken")
 
-        dmg = self.pivoting_unpivoting(dmg,['attackerName', 'weapon', 'hpDamageTaken'])
+        dmg = self.pivoting_unpivoting(
+            dmg, ['attackerName', 'weapon', 'hpDamageTaken'])
 
         return dmg.to_dict('records')
 
@@ -236,19 +243,27 @@ class CsGoDemoParser():
         first_kills = pd.DataFrame()
         for r in range(len(data['gameRounds'])):
             df = pd.DataFrame(data['gameRounds'][r]['kills'])
-            df = df.loc[df['isFirstKill'] == True, ['attackerName', 'attackerSide', 'victimName', 'victimSide', 'isFirstKill']]
+            df = df.loc[df['isFirstKill'] == True, [
+                'attackerName', 'attackerSide', 'victimName', 'victimSide', 'isFirstKill']]
             first_kills = pd.concat([first_kills, df])
 
-        first_kills_agg = first_kills.groupby(['attackerName', 'attackerSide'])['isFirstKill'].count().reset_index(name="isFirstKill")
-        first_kills_agg['attackerSide'] = np.where(first_kills_agg['attackerSide'] == 'CT', 'firstKillsCt', 'firstKillsTr')
-        first_kills_agg = first_kills_agg.rename(columns={'attackerName': 'playerName', 'attackerSide': 'key', 'isFirstKill': 'value'})
+        first_kills_agg = first_kills.groupby(['attackerName', 'attackerSide'])[
+            'isFirstKill'].count().reset_index(name="isFirstKill")
+        first_kills_agg['attackerSide'] = np.where(
+            first_kills_agg['attackerSide'] == 'CT', 'firstKillsCt', 'firstKillsTr')
+        first_kills_agg = first_kills_agg.rename(
+            columns={'attackerName': 'playerName', 'attackerSide': 'key', 'isFirstKill': 'value'})
 
-        first_deaths_agg = first_kills.groupby(['victimName', 'victimSide'])['isFirstKill'].count().reset_index(name="isFirstKill")
-        first_deaths_agg['victimSide'] = np.where(first_deaths_agg['victimSide'] == 'CT', 'firstDeathsCt', 'firstDeathsTr')
-        first_deaths_agg = first_deaths_agg.rename(columns={'victimName': 'playerName', 'victimSide': 'key', 'isFirstKill': 'value'})
+        first_deaths_agg = first_kills.groupby(['victimName', 'victimSide'])[
+            'isFirstKill'].count().reset_index(name="isFirstKill")
+        first_deaths_agg['victimSide'] = np.where(
+            first_deaths_agg['victimSide'] == 'CT', 'firstDeathsCt', 'firstDeathsTr')
+        first_deaths_agg = first_deaths_agg.rename(
+            columns={'victimName': 'playerName', 'victimSide': 'key', 'isFirstKill': 'value'})
 
         first_kills = pd.concat([first_kills_agg, first_deaths_agg])
-        first_kills = self.pivoting_unpivoting(first_kills,['playerName', 'key', 'value'])
+        first_kills = self.pivoting_unpivoting(
+            first_kills, ['playerName', 'key', 'value'])
         return first_kills.to_dict('records')
 
     def get_weapon_kills(self, data):
@@ -258,16 +273,20 @@ class CsGoDemoParser():
             df = pd.DataFrame(data['gameRounds'][r]['kills'])
             weapon_kill = pd.concat([weapon_kill, df])
 
-        weapon_kill = weapon_kill.groupby(['attackerName', 'weapon'])['weapon'].count().reset_index(name="weaponKills")
+        weapon_kill = weapon_kill.groupby(['attackerName', 'weapon'])[
+            'weapon'].count().reset_index(name="weaponKills")
         grouped_dict = {}
         for attacker, group in weapon_kill.groupby('attackerName'):
             weapons = group[['weapon', 'weaponKills']].to_dict(orient='list')
-            grouped_dict[attacker] = dict(zip(weapons['weapon'], weapons['weaponKills']))
+            grouped_dict[attacker] = dict(
+                zip(weapons['weapon'], weapons['weaponKills']))
 
-        weapon_kill = pd.DataFrame(grouped_dict.items(), columns=['attackerName', 'weaponKills'])
+        weapon_kill = pd.DataFrame(grouped_dict.items(), columns=[
+                                   'attackerName', 'weaponKills'])
         weapon_kill['key'] = 'weaponKills'
 
-        weapon_kill = self.pivoting_unpivoting(weapon_kill,['attackerName', 'key', 'weaponKills'])
+        weapon_kill = self.pivoting_unpivoting(
+            weapon_kill, ['attackerName', 'key', 'weaponKills'])
         return weapon_kill.to_dict('records')
 
     def get_weapon_deaths(self, data):
@@ -277,16 +296,20 @@ class CsGoDemoParser():
             df = pd.DataFrame(data['gameRounds'][r]['kills'])
             weapon_death = pd.concat([weapon_death, df])
 
-        weapon_death = weapon_death.groupby(['victimName', 'weapon'])['weapon'].count().reset_index(name="weaponKills")
+        weapon_death = weapon_death.groupby(['victimName', 'weapon'])[
+            'weapon'].count().reset_index(name="weaponKills")
         grouped_dict = {}
         for victim, group in weapon_death.groupby('victimName'):
             weapons = group[['weapon', 'weaponKills']].to_dict(orient='list')
-            grouped_dict[victim] = dict(zip(weapons['weapon'], weapons['weaponKills']))
+            grouped_dict[victim] = dict(
+                zip(weapons['weapon'], weapons['weaponKills']))
 
-        weapon_death = pd.DataFrame(grouped_dict.items(), columns=['victimName', 'weaponKills'])
+        weapon_death = pd.DataFrame(grouped_dict.items(), columns=[
+                                    'victimName', 'weaponKills'])
         weapon_death['key'] = 'weaponDeaths'
 
-        weapon_death = self.pivoting_unpivoting(weapon_death,['victimName', 'key', 'weaponKills'])
+        weapon_death = self.pivoting_unpivoting(
+            weapon_death, ['victimName', 'key', 'weaponKills'])
         return weapon_death.to_dict('records')
 
     def get_match_duration(self, seconds):
