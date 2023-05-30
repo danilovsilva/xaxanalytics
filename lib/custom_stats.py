@@ -86,8 +86,8 @@ def player_stats(
                     player_statistics[player_key] = {
                         "steamID": p["steamID"],
                         "playerName": p["playerName"],
-                        # "teamName": r[side]["teamName"], # default
-                        "teamName": side,  # custom - We defined that value need to be the side and not the teamName as de default version
+                        "teamName": r[side]["teamName"],  # default
+                        # "teamName": side,  # custom - We defined that value need to be the side and not the teamName as de default version
                         "isBot": p["steamID"] == 0,
                         "totalRounds": 0,
                         "kills": 0,
