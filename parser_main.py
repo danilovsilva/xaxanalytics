@@ -107,7 +107,7 @@ class CsGoDemoParser():
         @data (String): The data to be written
         @file_path (String): The path and name of the file to be written
         """
-        file_path = "./output/payload_"+self.match_id+".json"
+        file_path = "./output/"+self.match_date+"_payload_"+self.match_id+".json"
         with open(file_path, "w") as json_file:
             json.dump(data, json_file)
 

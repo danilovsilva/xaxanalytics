@@ -1,8 +1,8 @@
 import itertools
 
 # lista de jogadores e suas notas
-jogadores = [("aquino", 6.7), ("danilo", 5.4), ("diego", 4.5), ("erick", 6.6), ("jackie", 6.9),
-             ("luiz", 9.8), ("monstro", 6.1), ("pk", 4.4), ("rodrigo", 5.4), ("xaxa", 7.3)]
+jogadores = [("rr", 30), ("teba", 28), ("luiz", 27), ("ferzera", 26), ("araujo", 26),
+             ("nandex", 23), ("monstro", 23), ("xaxa", 24), ("avara", 24), ("aquino", 25)]
 
 # calcular todas as combinações possíveis de 5 jogadores em cada grupo
 comb_grupos = itertools.combinations(jogadores, 5)
