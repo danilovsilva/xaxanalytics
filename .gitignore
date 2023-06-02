@@ -160,3 +160,5 @@ cython_debug/
 
 # All .json on root
 /*.json
+
+passwd.py
