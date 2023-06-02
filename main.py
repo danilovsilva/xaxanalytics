@@ -1,7 +1,11 @@
 from parser_main import CsGoDemoParser
+from downloader import DownloadFTP
 import os
 import requests
 
+
+# downloader = DownloadFTP()
+# downloader.download_demos()
 
 # Obter a lista de arquivos na pasta "demos/"
 diretorio = "demos/"
@@ -17,7 +21,7 @@ for arquivo in arquivos:
     a.main()
 
     # Deletar o arquivo
-    # os.remove(caminho_arquivo)
+    os.remove(caminho_arquivo)
 
 # Caminho do arquivo JSON a ser enviado
 caminho_arquivo = "output/"
@@ -35,6 +39,6 @@ for arquivo in arquivos:
     # Verificar o status da resposta
     if response.status_code == 200:
         print("Arquivo JSON enviado com sucesso.")
-        # os.remove(caminho_arquivo + arquivo)
+        os.remove(caminho_arquivo + arquivo)
     else:
         print("Erro ao enviar o arquivo JSON:", response.text)
