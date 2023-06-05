@@ -81,6 +81,7 @@ class CsGoDemoParser():
         weapon_deaths = self.get_weapon_deaths(self.data)
         player_kills = self.get_player_kills(self.data)
         player_flashed = self.get_player_flashed(self.data)
+        rws = self.calculate_rws(self.data)
 
         self.lstats = self.add_value_by_steamID(self.lstats, grenade_damage)
         self.lstats = self.add_value_by_steamID(self.lstats, hsDeaths)
@@ -89,6 +90,7 @@ class CsGoDemoParser():
         self.lstats = self.add_value_by_steamID(self.lstats, weapon_deaths)
         self.lstats = self.add_value_by_steamID(self.lstats, player_kills)
         self.lstats = self.add_value_by_steamID(self.lstats, player_flashed)
+        self.lstats = self.add_value_by_steamID(self.lstats, rws)
 
         self.validate_tags(self.lstats)
 
@@ -368,7 +370,58 @@ class CsGoDemoParser():
             lstats[p]['weaponDeaths'] = lstats[p].get('weaponDeaths', '{}')
             lstats[p]['playerKills'] = lstats[p].get('playerKills', '{}')
             lstats[p]['playerFlashed'] = lstats[p].get('playerFlashed', '{}')
+            lstats[p]['rws'] = round(lstats[p].get('rws', '0'),2)
         return lstats
+
+    def calculate_rws(self, data):
+        rws = pd.DataFrame()
+
+        for r in range(len(data['gameRounds'])):
+            for d in range(len(data['gameRounds'][r]['damages'])):
+                if data['gameRounds'][r]['winningSide'] == data['gameRounds'][r]['damages'][d]['attackerSide']:
+                    df = pd.DataFrame(data['gameRounds'][r]['damages'][d], index=[0])
+                    if data['gameRounds'][r]['roundEndReason'] in ('BombDefused', 'TargetBombed'):
+                        df['playerReason'] = data['gameRounds'][r]['bombEvents'][-1]['playerSteamID']
+                    else:
+                        df['playerReason'] = 'None'
+                    df['roundEndReason'] = data['gameRounds'][r]['roundEndReason']
+                    df['round'] = r+1
+                    rws = pd.concat([rws, df])
+
+        rws = rws.groupby(['round', 'attackerSteamID', 'attackerTeam', 'roundEndReason', 'playerReason'])['hpDamageTaken'].sum().reset_index(name="totDamageRound")
+        rws['sumDamageRound'] = rws.groupby('round')['totDamageRound'].transform('sum')
+        rws['rws'] = (rws['totDamageRound'] / rws['sumDamageRound']) * 100
+
+        new_df = pd.DataFrame(columns=rws.columns)
+
+        added_rounds = set()
+        for index, row in rws.iterrows():
+            if row['playerReason'] != 'None' and row['round'] not in added_rounds:
+                current_round_rows = rws.loc[rws['round'] == row['round'], 'rws']
+                for index, value in current_round_rows.items():
+                    rws.at[index, 'rws'] = rws.at[index, 'rws'] * 0.7
+
+                new_row = {
+                    'round': row['round'],
+                    'attackerSteamID': row['playerReason'],
+                    'attackerTeam': row['attackerTeam'],
+                    'roundEndReason': row['roundEndReason'],
+                    'playerReason': row['playerReason'],
+                    'totDamageRound': 0,
+                    'sumDamageRound': row['sumDamageRound'],
+                    'rws': 30.0
+                }
+                new_df = pd.concat([new_df, pd.DataFrame(new_row, index=[0])], ignore_index=True)
+                added_rounds.add(row['round'])
+
+        rws = pd.concat([rws, new_df])
+
+        rws = rws.groupby(['attackerSteamID'])['rws'].sum().reset_index(name="rws")
+        rws['rws'] = rws['rws'] / len(data['gameRounds'])
+        rws['key'] = 'rws'
+
+        rws = self.pivoting_unpivoting(rws,['attackerSteamID', 'key', 'rws'])
+        return rws.to_dict('records')
 
     def main(self):
         """
