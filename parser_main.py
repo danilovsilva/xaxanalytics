@@ -35,6 +35,7 @@ class CsGoDemoParser():
         @return (@ret_type): The return type depends on the ret_type parameter (json as default)
         """
         self.data = self.demo_parser.parse()
+        self.data = self.cast_steamID_to_str(self.data)
         last_round = self.data['gameRounds'][-1]
 
         if last_round['winningSide'] == 'CT':
@@ -73,6 +74,8 @@ class CsGoDemoParser():
         pstats = player_stats(self.data["gameRounds"], return_type=ret_type)
         # list with dicts with all stats from players
         self.lstats = list(pstats.values())
+        for p in range(len(self.lstats)):
+            self.lstats[p]['steamID'] = str(self.lstats[p]['steamID'])
 
         grenade_damage = self.get_grenade_damage(self.data)
         hsDeaths = self.get_headshot_deaths(self.data)
@@ -422,6 +425,32 @@ class CsGoDemoParser():
 
         rws = self.pivoting_unpivoting(rws,['attackerSteamID', 'key', 'rws'])
         return rws.to_dict('records')
+
+    def cast_steamID_to_str(self, data):
+        for r in range(len(data['gameRounds'])):
+            for ct in range(len(data['gameRounds'][r]['ctSide']['players'])):
+                data['gameRounds'][r]['ctSide']['players'][ct]['steamID'] = str(data['gameRounds'][r]['ctSide']['players'][ct]['steamID'])
+            for t in range(len(data['gameRounds'][r]['tSide']['players'])):
+                data['gameRounds'][r]['tSide']['players'][t]['steamID'] = str(data['gameRounds'][r]['tSide']['players'][t]['steamID'])
+            for k in range(len(data['gameRounds'][r]['kills'])):
+                data['gameRounds'][r]['kills'][k]['attackerSteamID'] = str(data['gameRounds'][r]['kills'][k]['attackerSteamID'])
+                data['gameRounds'][r]['kills'][k]['victimSteamID'] = str(data['gameRounds'][r]['kills'][k]['victimSteamID'])
+                data['gameRounds'][r]['kills'][k]['assisterSteamID'] = str(data['gameRounds'][r]['kills'][k]['assisterSteamID'])
+                data['gameRounds'][r]['kills'][k]['flashThrowerSteamID'] = str(data['gameRounds'][r]['kills'][k]['flashThrowerSteamID'])
+                data['gameRounds'][r]['kills'][k]['playerTradedSteamID'] = str(data['gameRounds'][r]['kills'][k]['playerTradedSteamID'])
+            for d in range(len(data['gameRounds'][r]['damages'])):
+                data['gameRounds'][r]['damages'][d]['attackerSteamID'] = str(data['gameRounds'][r]['damages'][d]['attackerSteamID'])
+                data['gameRounds'][r]['damages'][d]['victimSteamID'] = str(data['gameRounds'][r]['damages'][d]['victimSteamID'])
+            for g in range(len(data['gameRounds'][r]['grenades'])):
+                data['gameRounds'][r]['grenades'][g]['throwerSteamID'] = str(data['gameRounds'][r]['grenades'][g]['throwerSteamID'])
+            for b in range(len(data['gameRounds'][r]['bombEvents'])):
+                data['gameRounds'][r]['bombEvents'][b]['playerSteamID'] = str(data['gameRounds'][r]['bombEvents'][b]['playerSteamID'])
+            if len(data['gameRounds'][r]['flashes']) >= 1:
+                for f in range(len(data['gameRounds'][r]['flashes'])):
+                    data['gameRounds'][r]['flashes'][f]['attackerSteamID'] = str(data['gameRounds'][r]['flashes'][f]['attackerSteamID'])
+                    data['gameRounds'][r]['flashes'][f]['playerSteamID'] = str(data['gameRounds'][r]['flashes'][f]['playerSteamID'])
+
+        return data
 
     def main(self):
         """
