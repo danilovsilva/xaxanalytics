@@ -366,6 +366,8 @@ class CsGoDemoParser():
             lstats[p]['fireDamage'] = int(lstats[p].get('fireDamage', '0'))
             lstats[p]['weaponKills'] = lstats[p].get('weaponKills', '{}')
             lstats[p]['weaponDeaths'] = lstats[p].get('weaponDeaths', '{}')
+            lstats[p]['playerKills'] = lstats[p].get('playerKills', '{}')
+            lstats[p]['playerFlashed'] = lstats[p].get('playerFlashed', '{}')
         return lstats
 
     def main(self):
