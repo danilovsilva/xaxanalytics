@@ -421,6 +421,7 @@ class CsGoDemoParser():
 
         rws = rws.groupby(['attackerSteamID'])['rws'].sum().reset_index(name="rws")
         rws['rws'] = rws['rws'] / len(data['gameRounds'])
+        rws['rws'] = round(rws['rws'],2)
         rws['key'] = 'rws'
 
         rws = self.pivoting_unpivoting(rws,['attackerSteamID', 'key', 'rws'])
