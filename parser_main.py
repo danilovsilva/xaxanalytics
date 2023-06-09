@@ -189,8 +189,8 @@ class CsGoDemoParser():
     def get_grenade_damage(self, data):
         dmg = pd.DataFrame()
 
-        for r in range(len(data['gameRounds'])):
-            df = pd.DataFrame(data['gameRounds'][r]['damages'])
+        for game_round in data['gameRounds']:
+            df = pd.DataFrame(game_round['damages'])
             df = df.loc[df['weaponClass'] == 'Grenade', ['attackerSteamID', 'weapon', 'hpDamageTaken']]
             df['weapon'] = np.where(df['weapon'].isin(['Incendiary Grenade', 'Molotov']), 'fireDamage', df['weapon'])
             df['weapon'] = np.where(df['weapon'] == 'HE Grenade', 'heDamage', df['weapon'])
@@ -232,8 +232,8 @@ class CsGoDemoParser():
 
     def get_headshot_deaths(self, data):
         headshot_deaths = pd.DataFrame()
-        for r in range(len(data['gameRounds'])):
-            df = pd.DataFrame(data['gameRounds'][r]['kills'])
+        for game_round in data['gameRounds']:
+            df = pd.DataFrame(game_round['kills'])
             df = df.loc[df['isHeadshot'] == True, ['isHeadshot', 'victimSteamID']]
             headshot_deaths = pd.concat([headshot_deaths, df])
 
@@ -249,8 +249,8 @@ class CsGoDemoParser():
 
     def get_first_kills(self, data):
         first_kills = pd.DataFrame()
-        for r in range(len(data['gameRounds'])):
-            df = pd.DataFrame(data['gameRounds'][r]['kills'])
+        for game_round in data['gameRounds']:
+            df = pd.DataFrame(game_round['kills'])
             df = df.loc[df['isFirstKill'] == True, [
                 'attackerSteamID', 'attackerSide', 'victimSteamID', 'victimSide', 'isFirstKill']]
             first_kills = pd.concat([first_kills, df])
@@ -277,8 +277,8 @@ class CsGoDemoParser():
     def get_weapon_kills(self, data):
         weapon_kill = pd.DataFrame()
 
-        for r in range(len(data['gameRounds'])):
-            df = pd.DataFrame(data['gameRounds'][r]['kills'])
+        for game_round in data['gameRounds']:
+            df = pd.DataFrame(game_round['kills'])
             weapon_kill = pd.concat([weapon_kill, df])
 
         weapon_kill = weapon_kill.groupby(['attackerSteamID', 'weapon'])[
@@ -300,8 +300,8 @@ class CsGoDemoParser():
     def get_weapon_deaths(self, data):
         weapon_death = pd.DataFrame()
 
-        for r in range(len(data['gameRounds'])):
-            df = pd.DataFrame(data['gameRounds'][r]['kills'])
+        for game_round in data['gameRounds']:
+            df = pd.DataFrame(game_round['kills'])
             weapon_death = pd.concat([weapon_death, df])
 
         weapon_death = weapon_death.groupby(['victimSteamID', 'weapon'])[
@@ -323,8 +323,8 @@ class CsGoDemoParser():
     def get_player_kills(self, data):
         player_kill = pd.DataFrame()
 
-        for r in range(len(data['gameRounds'])):
-            df = pd.DataFrame(data['gameRounds'][r]['kills'])
+        for game_round in data['gameRounds']:
+            df = pd.DataFrame(game_round['kills'])
             player_kill = pd.concat([player_kill, df])
 
         player_kill = player_kill.groupby(['attackerSteamID', 'victimSteamID'])['victimSteamID'].count().reset_index(name="playerKills")
@@ -342,8 +342,8 @@ class CsGoDemoParser():
     def get_player_deaths(self, data):
         player_death = pd.DataFrame()
 
-        for r in range(len(data['gameRounds'])):
-            df = pd.DataFrame(data['gameRounds'][r]['kills'])
+        for game_round in data['gameRounds']:
+            df = pd.DataFrame(game_round['kills'])
             player_death = pd.concat([player_death, df])
 
         player_death = player_death.groupby(['victimSteamID', 'attackerSteamID'])['attackerSteamID'].count().reset_index(name="playerDeaths")
@@ -361,8 +361,8 @@ class CsGoDemoParser():
     def get_player_flashed(self, data):
         player_flashed = pd.DataFrame()
 
-        for r in range(len(data['gameRounds'])):
-            df = pd.DataFrame(data['gameRounds'][r]['flashes'])
+        for game_round in data['gameRounds']:
+            df = pd.DataFrame(game_round['flashes'])
             player_flashed = pd.concat([player_flashed, df])
 
         player_flashed = player_flashed.groupby(['attackerSteamID', 'playerSteamID'])['flashDuration'].sum().reset_index(name="playerFlashed")
@@ -381,8 +381,8 @@ class CsGoDemoParser():
     def get_flashed_by(self, data):
         flashed_by = pd.DataFrame()
 
-        for r in range(len(data['gameRounds'])):
-            df = pd.DataFrame(data['gameRounds'][r]['flashes'])
+        for game_round in data['gameRounds']:
+            df = pd.DataFrame(game_round['flashes'])
             flashed_by = pd.concat([flashed_by, df])
 
         flashed_by = flashed_by.groupby(['playerSteamID', 'attackerSteamID'])['flashDuration'].sum().reset_index(name="flashedByPlayer")
@@ -426,17 +426,17 @@ class CsGoDemoParser():
     def calculate_rws(self, data):
         rws = pd.DataFrame()
 
-        for r in range(len(data['gameRounds'])):
-            for d in range(len(data['gameRounds'][r]['damages'])):
-                if data['gameRounds'][r]['winningSide'] == data['gameRounds'][r]['damages'][d]['attackerSide'] and \
-                   data['gameRounds'][r]['damages'][d]['attackerSide'] != data['gameRounds'][r]['damages'][d]['victimSide']:
-                    df = pd.DataFrame(data['gameRounds'][r]['damages'][d], index=[0])
-                    if data['gameRounds'][r]['roundEndReason'] in ('BombDefused', 'TargetBombed'):
-                        df['playerReason'] = data['gameRounds'][r]['bombEvents'][-1]['playerSteamID']
+        for game_round in data['gameRounds']:
+            for damage in game_round['damages']:
+                if game_round['winningSide'] == damage['attackerSide'] and \
+                   damage['attackerSide'] != damage['victimSide']:
+                    df = pd.DataFrame(damage, index=[0])
+                    if game_round['roundEndReason'] in ('BombDefused', 'TargetBombed'):
+                        df['playerReason'] = game_round['bombEvents'][-1]['playerSteamID']
                     else:
                         df['playerReason'] = 'None'
-                    df['roundEndReason'] = data['gameRounds'][r]['roundEndReason']
-                    df['round'] = r+1
+                    df['roundEndReason'] = game_round['roundEndReason']
+                    df['round'] = game_round['roundNum']
                     rws = pd.concat([rws, df])
 
         rws = rws.groupby(['round', 'attackerSteamID', 'attackerTeam', 'roundEndReason', 'playerReason'])\
