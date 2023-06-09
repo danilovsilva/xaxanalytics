@@ -1,0 +1,19 @@
+matchID
+matchDate
+mapName
+matchDuration
+matchStats
+    teamWinnerName
+    teamWinnerSide
+    teamWinnerScore
+    teamWinnerPlayers
+        steamID
+        playerName
+    teamLoserName
+    teamLoserSide
+    teamLoserScore
+    teamLoserPlayers
+        steamID
+        playerName
+playersStats
+    caralhada de coisa

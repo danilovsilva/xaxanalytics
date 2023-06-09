@@ -78,7 +78,7 @@ class CsGoDemoParser():
             self.lstats[p]['steamID'] = str(self.lstats[p]['steamID'])
 
         grenade_damage = self.get_grenade_damage(self.data)
-        hsDeaths = self.get_headshot_deaths(self.data)
+        hs_deaths = self.get_headshot_deaths(self.data)
         first_kills = self.get_first_kills(self.data)
         weapon_kills = self.get_weapon_kills(self.data)
         weapon_deaths = self.get_weapon_deaths(self.data)
@@ -87,7 +87,7 @@ class CsGoDemoParser():
         rws = self.calculate_rws(self.data)
 
         self.lstats = self.add_value_by_steamID(self.lstats, grenade_damage)
-        self.lstats = self.add_value_by_steamID(self.lstats, hsDeaths)
+        self.lstats = self.add_value_by_steamID(self.lstats, hs_deaths)
         self.lstats = self.add_value_by_steamID(self.lstats, first_kills)
         self.lstats = self.add_value_by_steamID(self.lstats, weapon_kills)
         self.lstats = self.add_value_by_steamID(self.lstats, weapon_deaths)
@@ -165,7 +165,7 @@ class CsGoDemoParser():
         return data
 
     def add_value_by_steamID(self, lstats, records):
-        '''
+        """
         This method will add key and value to a dict, using the steamID as filter.
 
         @lstats (list): List of player stats.
@@ -174,7 +174,7 @@ class CsGoDemoParser():
             {'steamID': '76561198061035335',
             'key': 'heDamage',
             'value': 405}
-        '''
+        """
         for record in records:
             for player in lstats:
                 if player['steamID'] == record['steamID']:
@@ -343,6 +343,7 @@ class CsGoDemoParser():
             player_flashed = pd.concat([player_flashed, df])
 
         player_flashed = player_flashed.groupby(['attackerSteamID', 'playerSteamID'])['flashDuration'].sum().reset_index(name="playerFlashed")
+        player_flashed['playerFlashed'] = round(player_flashed['playerFlashed'], 2)
         grouped_dict = {}
         for attacker, group in player_flashed.groupby('attackerSteamID'):
             players = group[['playerSteamID', 'playerFlashed']].to_dict(orient='list')
@@ -361,19 +362,20 @@ class CsGoDemoParser():
         return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
 
     def validate_tags(self, lstats):
-        for p in range(len(lstats)):
-            lstats[p]['firstDeathsCt'] = int(lstats[p].get('firstDeathsCt', '0'))
-            lstats[p]['firstDeathsTr'] = int(lstats[p].get('firstDeathsTr', '0'))
-            lstats[p]['firstKillsCt'] = int(lstats[p].get('firstKillsCt', '0'))
-            lstats[p]['firstKillsTr'] = int(lstats[p].get('firstKillsTr', '0'))
-            lstats[p]['hsDeaths'] = int(lstats[p].get('hsDeaths', '0'))
-            lstats[p]['heDamage'] = int(lstats[p].get('heDamage', '0'))
-            lstats[p]['fireDamage'] = int(lstats[p].get('fireDamage', '0'))
-            lstats[p]['weaponKills'] = lstats[p].get('weaponKills', '{}')
-            lstats[p]['weaponDeaths'] = lstats[p].get('weaponDeaths', '{}')
-            lstats[p]['playerKills'] = lstats[p].get('playerKills', '{}')
-            lstats[p]['playerFlashed'] = lstats[p].get('playerFlashed', '{}')
-            lstats[p]['rws'] = round(lstats[p].get('rws', '0'),2)
+        for player_stats in lstats:
+            player_stats['firstDeathsCt'] = int(player_stats.get('firstDeathsCt', 0))
+            player_stats['firstDeathsTr'] = int(player_stats.get('firstDeathsTr', 0))
+            player_stats['firstKillsCt'] = int(player_stats.get('firstKillsCt', 0))
+            player_stats['firstKillsTr'] = int(player_stats.get('firstKillsTr', 0))
+            player_stats['hsDeaths'] = int(player_stats.get('hsDeaths', 0))
+            player_stats['heDamage'] = int(player_stats.get('heDamage', 0))
+            player_stats['fireDamage'] = int(player_stats.get('fireDamage', 0))
+            player_stats['weaponKills'] = player_stats.get('weaponKills', {})
+            player_stats['weaponDeaths'] = player_stats.get('weaponDeaths', {})
+            player_stats['playerKills'] = player_stats.get('playerKills', {})
+            player_stats['playerFlashed'] = player_stats.get('playerFlashed', {})
+            player_stats['rws'] = round(player_stats.get('rws', 0), 2)
+
         return lstats
 
     def calculate_rws(self, data):
@@ -381,7 +383,8 @@ class CsGoDemoParser():
 
         for r in range(len(data['gameRounds'])):
             for d in range(len(data['gameRounds'][r]['damages'])):
-                if data['gameRounds'][r]['winningSide'] == data['gameRounds'][r]['damages'][d]['attackerSide']:
+                if data['gameRounds'][r]['winningSide'] == data['gameRounds'][r]['damages'][d]['attackerSide'] and \
+                   data['gameRounds'][r]['damages'][d]['attackerSide'] != data['gameRounds'][r]['damages'][d]['victimSide']:
                     df = pd.DataFrame(data['gameRounds'][r]['damages'][d], index=[0])
                     if data['gameRounds'][r]['roundEndReason'] in ('BombDefused', 'TargetBombed'):
                         df['playerReason'] = data['gameRounds'][r]['bombEvents'][-1]['playerSteamID']
@@ -391,7 +394,8 @@ class CsGoDemoParser():
                     df['round'] = r+1
                     rws = pd.concat([rws, df])
 
-        rws = rws.groupby(['round', 'attackerSteamID', 'attackerTeam', 'roundEndReason', 'playerReason'])['hpDamageTaken'].sum().reset_index(name="totDamageRound")
+        rws = rws.groupby(['round', 'attackerSteamID', 'attackerTeam', 'roundEndReason', 'playerReason'])\
+            ['hpDamageTaken'].sum().reset_index(name="totDamageRound")
         rws['sumDamageRound'] = rws.groupby('round')['totDamageRound'].transform('sum')
         rws['rws'] = (rws['totDamageRound'] / rws['sumDamageRound']) * 100
 
@@ -401,8 +405,8 @@ class CsGoDemoParser():
         for index, row in rws.iterrows():
             if row['playerReason'] != 'None' and row['round'] not in added_rounds:
                 current_round_rows = rws.loc[rws['round'] == row['round'], 'rws']
-                for index, value in current_round_rows.items():
-                    rws.at[index, 'rws'] = rws.at[index, 'rws'] * 0.7
+                for idx, value in current_round_rows.items():
+                    rws.at[idx, 'rws'] = rws.at[idx, 'rws'] * 0.7
 
                 new_row = {
                     'round': row['round'],
@@ -421,35 +425,42 @@ class CsGoDemoParser():
 
         rws = rws.groupby(['attackerSteamID'])['rws'].sum().reset_index(name="rws")
         rws['rws'] = rws['rws'] / len(data['gameRounds'])
-        rws['rws'] = round(rws['rws'],2)
+        rws['rws'] = round(rws['rws'], 2)
         rws['key'] = 'rws'
 
         rws = self.pivoting_unpivoting(rws,['attackerSteamID', 'key', 'rws'])
         return rws.to_dict('records')
 
     def cast_steamID_to_str(self, data):
-        for r in range(len(data['gameRounds'])):
-            for ct in range(len(data['gameRounds'][r]['ctSide']['players'])):
-                data['gameRounds'][r]['ctSide']['players'][ct]['steamID'] = str(data['gameRounds'][r]['ctSide']['players'][ct]['steamID'])
-            for t in range(len(data['gameRounds'][r]['tSide']['players'])):
-                data['gameRounds'][r]['tSide']['players'][t]['steamID'] = str(data['gameRounds'][r]['tSide']['players'][t]['steamID'])
-            for k in range(len(data['gameRounds'][r]['kills'])):
-                data['gameRounds'][r]['kills'][k]['attackerSteamID'] = str(data['gameRounds'][r]['kills'][k]['attackerSteamID'])
-                data['gameRounds'][r]['kills'][k]['victimSteamID'] = str(data['gameRounds'][r]['kills'][k]['victimSteamID'])
-                data['gameRounds'][r]['kills'][k]['assisterSteamID'] = str(data['gameRounds'][r]['kills'][k]['assisterSteamID'])
-                data['gameRounds'][r]['kills'][k]['flashThrowerSteamID'] = str(data['gameRounds'][r]['kills'][k]['flashThrowerSteamID'])
-                data['gameRounds'][r]['kills'][k]['playerTradedSteamID'] = str(data['gameRounds'][r]['kills'][k]['playerTradedSteamID'])
-            for d in range(len(data['gameRounds'][r]['damages'])):
-                data['gameRounds'][r]['damages'][d]['attackerSteamID'] = str(data['gameRounds'][r]['damages'][d]['attackerSteamID'])
-                data['gameRounds'][r]['damages'][d]['victimSteamID'] = str(data['gameRounds'][r]['damages'][d]['victimSteamID'])
-            for g in range(len(data['gameRounds'][r]['grenades'])):
-                data['gameRounds'][r]['grenades'][g]['throwerSteamID'] = str(data['gameRounds'][r]['grenades'][g]['throwerSteamID'])
-            for b in range(len(data['gameRounds'][r]['bombEvents'])):
-                data['gameRounds'][r]['bombEvents'][b]['playerSteamID'] = str(data['gameRounds'][r]['bombEvents'][b]['playerSteamID'])
-            if len(data['gameRounds'][r]['flashes']) >= 1:
-                for f in range(len(data['gameRounds'][r]['flashes'])):
-                    data['gameRounds'][r]['flashes'][f]['attackerSteamID'] = str(data['gameRounds'][r]['flashes'][f]['attackerSteamID'])
-                    data['gameRounds'][r]['flashes'][f]['playerSteamID'] = str(data['gameRounds'][r]['flashes'][f]['playerSteamID'])
+        for round_data in data['gameRounds']:
+            ct_players = round_data['ctSide']['players']
+            t_players = round_data['tSide']['players']
+            kills = round_data['kills']
+            damages = round_data['damages']
+            grenades = round_data['grenades']
+            bomb_events = round_data['bombEvents']
+            flashes = round_data['flashes']
+
+            for player in ct_players:
+                player['steamID'] = str(player['steamID'])
+            for player in t_players:
+                player['steamID'] = str(player['steamID'])
+            for kill in kills:
+                kill['attackerSteamID'] = str(kill['attackerSteamID'])
+                kill['victimSteamID'] = str(kill['victimSteamID'])
+                kill['assisterSteamID'] = str(kill['assisterSteamID'])
+                kill['flashThrowerSteamID'] = str(kill['flashThrowerSteamID'])
+                kill['playerTradedSteamID'] = str(kill['playerTradedSteamID'])
+            for damage in damages:
+                damage['attackerSteamID'] = str(damage['attackerSteamID'])
+                damage['victimSteamID'] = str(damage['victimSteamID'])
+            for grenade in grenades:
+                grenade['throwerSteamID'] = str(grenade['throwerSteamID'])
+            for bomb_event in bomb_events:
+                bomb_event['playerSteamID'] = str(bomb_event['playerSteamID'])
+            for flash in flashes:
+                flash['attackerSteamID'] = str(flash['attackerSteamID'])
+                flash['playerSteamID'] = str(flash['playerSteamID'])
 
         return data
 
