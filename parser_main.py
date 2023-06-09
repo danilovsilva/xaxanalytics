@@ -83,7 +83,9 @@ class CsGoDemoParser():
         weapon_kills = self.get_weapon_kills(self.data)
         weapon_deaths = self.get_weapon_deaths(self.data)
         player_kills = self.get_player_kills(self.data)
+        player_deaths = self.get_player_deaths(self.data)
         player_flashed = self.get_player_flashed(self.data)
+        flashed_by = self.get_flashed_by(self.data)
         rws = self.calculate_rws(self.data)
 
         self.lstats = self.add_value_by_steamID(self.lstats, grenade_damage)
@@ -92,7 +94,9 @@ class CsGoDemoParser():
         self.lstats = self.add_value_by_steamID(self.lstats, weapon_kills)
         self.lstats = self.add_value_by_steamID(self.lstats, weapon_deaths)
         self.lstats = self.add_value_by_steamID(self.lstats, player_kills)
+        self.lstats = self.add_value_by_steamID(self.lstats, player_deaths)
         self.lstats = self.add_value_by_steamID(self.lstats, player_flashed)
+        self.lstats = self.add_value_by_steamID(self.lstats, flashed_by)
         self.lstats = self.add_value_by_steamID(self.lstats, rws)
 
         self.validate_tags(self.lstats)
@@ -335,6 +339,25 @@ class CsGoDemoParser():
         player_kill = self.pivoting_unpivoting(player_kill, ['attackerSteamID', 'key', 'playerKills'])
         return player_kill.to_dict('records')
 
+    def get_player_deaths(self, data):
+        player_death = pd.DataFrame()
+
+        for r in range(len(data['gameRounds'])):
+            df = pd.DataFrame(data['gameRounds'][r]['kills'])
+            player_death = pd.concat([player_death, df])
+
+        player_death = player_death.groupby(['victimSteamID', 'attackerSteamID'])['attackerSteamID'].count().reset_index(name="playerDeaths")
+        grouped_dict = {}
+        for attacker, group in player_death.groupby('victimSteamID'):
+            players = group[['attackerSteamID', 'playerDeaths']].to_dict(orient='list')
+            grouped_dict[attacker] = dict(zip(players['attackerSteamID'], players['playerDeaths']))
+
+        player_death = pd.DataFrame(grouped_dict.items(), columns=['victimSteamID', 'playerDeaths'])
+        player_death['key'] = 'playerDeaths'
+
+        player_death = self.pivoting_unpivoting(player_death, ['victimSteamID', 'key', 'playerDeaths'])
+        return player_death.to_dict('records')
+
     def get_player_flashed(self, data):
         player_flashed = pd.DataFrame()
 
@@ -355,6 +378,26 @@ class CsGoDemoParser():
         player_flashed = self.pivoting_unpivoting(player_flashed, ['attackerSteamID', 'key', 'playerFlashed'])
         return player_flashed.to_dict('records')
 
+    def get_flashed_by(self, data):
+        flashed_by = pd.DataFrame()
+
+        for r in range(len(data['gameRounds'])):
+            df = pd.DataFrame(data['gameRounds'][r]['flashes'])
+            flashed_by = pd.concat([flashed_by, df])
+
+        flashed_by = flashed_by.groupby(['playerSteamID', 'attackerSteamID'])['flashDuration'].sum().reset_index(name="flashedByPlayer")
+        flashed_by['flashedByPlayer'] = round(flashed_by['flashedByPlayer'], 2)
+        grouped_dict = {}
+        for attacker, group in flashed_by.groupby('playerSteamID'):
+            players = group[['attackerSteamID', 'flashedByPlayer']].to_dict(orient='list')
+            grouped_dict[attacker] = dict(zip(players['attackerSteamID'], players['flashedByPlayer']))
+
+        flashed_by = pd.DataFrame(grouped_dict.items(), columns=['playerSteamID', 'flashedByPlayer'])
+        flashed_by['key'] = 'flashedByPlayer'
+
+        flashed_by = self.pivoting_unpivoting(flashed_by, ['playerSteamID', 'key', 'flashedByPlayer'])
+        return flashed_by.to_dict('records')
+
     def get_match_duration(self, seconds):
         hours = int(seconds // 3600)
         minutes = int((seconds % 3600) // 60)
@@ -373,7 +416,9 @@ class CsGoDemoParser():
             player_stats['weaponKills'] = player_stats.get('weaponKills', {})
             player_stats['weaponDeaths'] = player_stats.get('weaponDeaths', {})
             player_stats['playerKills'] = player_stats.get('playerKills', {})
+            player_stats['playerDeaths'] = player_stats.get('playerDeaths', {})
             player_stats['playerFlashed'] = player_stats.get('playerFlashed', {})
+            player_stats['flashedByPlayer'] = player_stats.get('flashedByPlayer', {})
             player_stats['rws'] = round(player_stats.get('rws', 0), 2)
 
         return lstats
