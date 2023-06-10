@@ -107,7 +107,7 @@ class CsGoDemoParser():
                 "matchDate": self.match_date,
                 "mapName": self.data["mapName"],
                 "matchStats": self.match_stats,
-                "playersStats": pstats
+                "playersStats": self.lstats
             }
             return json.dumps(result)
         else:
@@ -347,6 +347,8 @@ class CsGoDemoParser():
             player_death = pd.concat([player_death, df])
 
         player_death = player_death.groupby(['victimSteamID', 'attackerSteamID'])['attackerSteamID'].count().reset_index(name="playerDeaths")
+        for p in range(len(player_death)):
+            player_death.loc[p, 'attackerSteamID'] = player_death.loc[p, 'attackerSteamID'] if player_death.loc[p, 'attackerSteamID'] != 'None' else player_death.loc[p, 'victimSteamID']
         grouped_dict = {}
         for attacker, group in player_death.groupby('victimSteamID'):
             players = group[['attackerSteamID', 'playerDeaths']].to_dict(orient='list')
