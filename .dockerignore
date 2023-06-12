@@ -1,0 +1,10 @@
+output/*
+demos/*
+demos\ revisar
+.vscode
+.mypy_cache
+.__pycache__
+xaxanalytics_env
+Dockerfile
+melhor_comb.py
+*.zip
