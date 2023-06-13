@@ -162,3 +162,5 @@ cython_debug/
 /*.json
 
 passwd.py
+
+demos_revisar/
