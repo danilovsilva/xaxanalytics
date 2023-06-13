@@ -2,9 +2,10 @@ import ftplib
 import os
 from passwd import userftp, passwdftp
 
+
 class DownloadFTP():
 
-    def download_demos(self):
+    def download_demos(self, path):
 
         # Conectando ao servidor FTP
         ftp = ftplib.FTP('ftp.maggie.hostzone.games')
@@ -17,16 +18,16 @@ class DownloadFTP():
         arquivos = ftp.nlst()
 
         # Escolhendo a pasta onde os arquivos serão salvos
-        pasta_destino = "C:/projects/xaxanalytics_parser/demos"
+        # pasta_destino = "C:/projects/xaxanalytics_parser/demos"
 
         # Criando a pasta de destino, se ela não existir
-        if not os.path.exists(pasta_destino):
-            os.makedirs(pasta_destino)
+        if not os.path.exists(path):
+            os.makedirs(path)
 
         # Baixando os arquivos .dem para a pasta de destino
         for arquivo in arquivos:
             if arquivo.endswith('.dem'):
-                caminho_arquivo = os.path.join(pasta_destino, arquivo)
+                caminho_arquivo = os.path.join(path, arquivo)
                 if not os.path.exists(caminho_arquivo):
                     with open(caminho_arquivo, 'wb') as f:
                         ftp.retrbinary('RETR ' + arquivo, f.write)
