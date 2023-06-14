@@ -24,6 +24,7 @@ for arquivo in arquivos:
     print("Iniciando parser do arquivo "+str(caminho_arquivo))
     a = CsGoDemoParser(demo_file=caminho_arquivo)
     a.main()
+    print("Finalizado parser do arquivo "+str(caminho_arquivo))
 
     # Deletar o arquivo
     # os.remove(caminho_arquivo)
