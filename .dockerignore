@@ -1,5 +1,6 @@
 output/*
 demos/*
+demos_revisar
 demos\ revisar
 .vscode
 .mypy_cache
