@@ -303,18 +303,23 @@ class CsGoDemoParser():
         return weapon_kill.to_dict('records')
 
     def get_first_kills_sides(self, data):
-        first_kills = pd.DataFrame()
+        first_kills = []
 
         for r in data['gameRounds']:
-            for k in r['kills']:
-                df = pd.DataFrame(data=k, index=[r['roundNum']])
-                df['roundNum'] = r['roundNum']
-                df['winningSide'] = r['winningSide']
-                first_kills = pd.concat([first_kills, df], ignore_index=True)
-                break
+            if 'kills' in r:
+                kill = r['kills'][0]
+                first_kill = {
+                    'roundNum': r['roundNum'],
+                    'winningSide': r['winningSide'],
+                    'attackerSteamID': kill['attackerSteamID'],
+                    'attackerSide': kill['attackerSide'],
+                    'victimSteamID': kill['victimSteamID'],
+                    'victimSide': kill['victimSide'],
+                    'seconds': kill['seconds']
+                }
+                first_kills.append(first_kill)
 
-        first_kills = first_kills[['roundNum', 'winningSide', 'attackerSteamID', 'attackerSide', 'victimSteamID', 'victimSide', 'seconds']]
-        return first_kills.to_dict('records')
+        return first_kills
 
     def get_weapon_deaths(self, data):
         weapon_death = pd.DataFrame()
