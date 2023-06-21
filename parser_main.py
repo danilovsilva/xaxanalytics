@@ -21,6 +21,7 @@ class CsGoDemoParser():
         self.output = {}
         self.match_date = self.get_date_from_demofile(demo_path+demo_file)
         self.match_id = self.calculate_file_hash(demo_path+demo_file)
+        self.file_name = demo_file[6:]
 
         # Parsing the demo file using the DemoParser from awpy lib
         self.demo_parser = DemoParser(
@@ -57,6 +58,8 @@ class CsGoDemoParser():
             team_loser_score = last_round['endCTScore']
             team_loser_players = last_round['ctSide']['players']
 
+        first_kills_side = self.get_first_kills_sides(self.data)
+
         self.match_stats = {
             "teamWinnerName": team_winner_name,
             "teamWinnerSide": team_winner_side,
@@ -66,6 +69,7 @@ class CsGoDemoParser():
             "teamLoserSide": team_loser_side,
             "teamLoserScore": team_loser_score,
             "teamLoserPlayers": team_loser_players,
+            "firstKills": first_kills_side
         }
 
         self.match_duration = self.get_match_duration(
@@ -156,8 +160,9 @@ class CsGoDemoParser():
 
         return file_hash
 
-    def criar_json(self, match_id, match_date, map_name, match_duration, match_stats, player_stats):
+    def criar_json(self, file_name, match_id, match_date, map_name, match_duration, match_stats, player_stats):
         data = {
+            "fileName": file_name,
             "matchID": match_id,
             "matchDate": match_date,
             "mapName": map_name,
@@ -296,6 +301,20 @@ class CsGoDemoParser():
         weapon_kill = self.pivoting_unpivoting(
             weapon_kill, ['attackerSteamID', 'key', 'weaponKills'])
         return weapon_kill.to_dict('records')
+
+    def get_first_kills_sides(self, data):
+        first_kills = pd.DataFrame()
+
+        for r in data['gameRounds']:
+            for k in r['kills']:
+                df = pd.DataFrame(data=k, index=[r['roundNum']])
+                df['roundNum'] = r['roundNum']
+                df['winningSide'] = r['winningSide']
+                first_kills = pd.concat([first_kills, df], ignore_index=True)
+                break
+
+        first_kills = first_kills[['roundNum', 'winningSide', 'attackerSteamID', 'attackerSide', 'victimSteamID', 'victimSide', 'seconds']]
+        return first_kills.to_dict('records')
 
     def get_weapon_deaths(self, data):
         weapon_death = pd.DataFrame()
@@ -516,7 +535,8 @@ class CsGoDemoParser():
         This method will do everything to recover all data and analytical functions
         """
         self.get_player_stats()
-        self.output_json(self.criar_json(self.match_id,
+        self.output_json(self.criar_json(self.file_name,
+                                         self.match_id,
                                          self.match_date,
                                          self.data["mapName"],
                                          self.match_duration,
