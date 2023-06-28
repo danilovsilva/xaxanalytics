@@ -6,32 +6,34 @@ from passwd import userftp, passwdftp
 class DownloadFTP():
 
     def download_demos(self, path):
-
-        # Conectando ao servidor FTP
+        # Connecting to the FTP server
         ftp = ftplib.FTP('ftp.maggie.hostzone.games')
         ftp.login(userftp, passwdftp)
 
-        # Navegando para o diretório onde estão os arquivos .dem
+        # Navigating to the directory where the .dem files are located
         ftp.cwd('/csgo/')
 
-        # Listando os arquivos no diretório
-        arquivos = ftp.nlst()
+        # Listing the files in the directory
+        files = ftp.nlst()
 
-        # Escolhendo a pasta onde os arquivos serão salvos
-        # pasta_destino = "C:/projects/xaxanalytics_parser/demos"
-
-        # Criando a pasta de destino, se ela não existir
+        # Choosing the destination folder where the files will be saved
         if not os.path.exists(path):
             os.makedirs(path)
 
-        # Baixando os arquivos .dem para a pasta de destino
-        for arquivo in arquivos:
-            if arquivo.endswith('.dem'):
-                caminho_arquivo = os.path.join(path, arquivo)
-                if not os.path.exists(caminho_arquivo):
-                    with open(caminho_arquivo, 'wb') as f:
-                        ftp.retrbinary('RETR ' + arquivo, f.write)
-                    print("Arquivo " + arquivo + " baixado com sucesso.")
+        # Downloading the .dem files to the destination folder
+        for file in files:
+            if file.endswith('.dem'):
+                file_path = os.path.join(path, file)
+                if not os.path.exists(file_path):
+                    with open(file_path, 'wb') as f:
+                        ftp.retrbinary('RETR ' + file, f.write)
+                    print("File " + file + " downloaded successfully.")
 
-        # Fechando a conexão com o servidor FTP
+                    # Moving the .dem file to the '/csgo/demo_parsed' directory
+                    destination = '/csgo/demo_parsed/' + file
+                    ftp.rename(file, destination)
+                    print("File " + file + " moved to " +
+                          destination + " successfully.")
+
+        # Closing the FTP connection
         ftp.quit()
