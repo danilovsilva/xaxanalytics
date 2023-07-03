@@ -3,6 +3,7 @@ from lib.custom_stats import player_stats
 import pandas as pd
 import numpy as np
 import json
+import os
 
 # Set the parse_rate equal to the tick rate at which you would like to parse the frames of the demo.
 # This parameter only matters if parse_frames=True ()
@@ -11,7 +12,7 @@ import json
 
 class CsGoDemoParser():
 
-    def __init__(self,  demo_file, demo_path="", tick_rate=128):
+    def __init__(self,  demo_file, output, demo_path="", tick_rate=128):
         """
         Retrieves player stats and match information.
 
@@ -22,12 +23,18 @@ class CsGoDemoParser():
         self.match_date = self.get_date_from_demofile(demo_path+demo_file)
         self.match_id = self.calculate_file_hash(demo_path+demo_file)
         self.file_name = demo_file[6:]
+        self.output_path = output
+        if not os.path.exists(output):
+            print("[DVS] path "+output+" doesn't existe")
+            os.makedirs(output)
 
         # Parsing the demo file using the DemoParser from awpy lib
         self.demo_parser = DemoParser(
             demofile=demo_path+demo_file,
             demo_id=self.match_id,
-            parse_rate=tick_rate
+            parse_rate=tick_rate,
+            log=True,
+            outpath=self.output_path
         )
 
     def get_player_stats(self, ret_type="json"):
@@ -124,7 +131,8 @@ class CsGoDemoParser():
         @data (String): The data to be written
         @file_path (String): The path and name of the file to be written
         """
-        file_path = "./output/"+self.match_date+"_payload_"+self.match_id+".json"
+
+        file_path = self.output_path+self.match_date+"_payload_"+self.match_id+".json"
         with open(file_path, "w") as json_file:
             json.dump(data, json_file)
 
@@ -196,16 +204,23 @@ class CsGoDemoParser():
 
         for game_round in data['gameRounds']:
             df = pd.DataFrame(game_round['damages'])
-            df = df.loc[df['weaponClass'] == 'Grenade', ['attackerSteamID', 'weapon', 'hpDamageTaken']]
-            df['weapon'] = np.where(df['weapon'].isin(['Incendiary Grenade', 'Molotov']), 'fireDamage', df['weapon'])
-            df['weapon'] = np.where(df['weapon'] == 'HE Grenade', 'heDamage', df['weapon'])
-            df['weapon'] = np.where(df['weapon'] == 'Smoke Grenade', 'smokeDamage', df['weapon'])
-            df['weapon'] = np.where(df['weapon'] == 'Flash Grenade', 'flashDamage', df['weapon'])
+            df = df.loc[df['weaponClass'] == 'Grenade', [
+                'attackerSteamID', 'weapon', 'hpDamageTaken']]
+            df['weapon'] = np.where(df['weapon'].isin(
+                ['Incendiary Grenade', 'Molotov']), 'fireDamage', df['weapon'])
+            df['weapon'] = np.where(
+                df['weapon'] == 'HE Grenade', 'heDamage', df['weapon'])
+            df['weapon'] = np.where(
+                df['weapon'] == 'Smoke Grenade', 'smokeDamage', df['weapon'])
+            df['weapon'] = np.where(
+                df['weapon'] == 'Flash Grenade', 'flashDamage', df['weapon'])
             dmg = pd.concat([dmg, df])
 
-        dmg = dmg.groupby(['attackerSteamID', 'weapon'])['hpDamageTaken'].sum().reset_index(name="hpDamageTaken")
+        dmg = dmg.groupby(['attackerSteamID', 'weapon'])[
+            'hpDamageTaken'].sum().reset_index(name="hpDamageTaken")
 
-        dmg = self.pivoting_unpivoting(dmg, ['attackerSteamID', 'weapon', 'hpDamageTaken'])
+        dmg = self.pivoting_unpivoting(
+            dmg, ['attackerSteamID', 'weapon', 'hpDamageTaken'])
 
         return dmg.to_dict('records')
 
@@ -239,7 +254,8 @@ class CsGoDemoParser():
         headshot_deaths = pd.DataFrame()
         for game_round in data['gameRounds']:
             df = pd.DataFrame(game_round['kills'])
-            df = df.loc[df['isHeadshot'] == True, ['isHeadshot', 'victimSteamID']]
+            df = df.loc[df['isHeadshot'] == True,
+                        ['isHeadshot', 'victimSteamID']]
             headshot_deaths = pd.concat([headshot_deaths, df])
 
         headshot_deaths = headshot_deaths.groupby(
@@ -351,16 +367,21 @@ class CsGoDemoParser():
             df = pd.DataFrame(game_round['kills'])
             player_kill = pd.concat([player_kill, df])
 
-        player_kill = player_kill.groupby(['attackerSteamID', 'victimSteamID'])['victimSteamID'].count().reset_index(name="playerKills")
+        player_kill = player_kill.groupby(['attackerSteamID', 'victimSteamID'])[
+            'victimSteamID'].count().reset_index(name="playerKills")
         grouped_dict = {}
         for attacker, group in player_kill.groupby('attackerSteamID'):
-            players = group[['victimSteamID', 'playerKills']].to_dict(orient='list')
-            grouped_dict[attacker] = dict(zip(players['victimSteamID'], players['playerKills']))
+            players = group[['victimSteamID', 'playerKills']
+                            ].to_dict(orient='list')
+            grouped_dict[attacker] = dict(
+                zip(players['victimSteamID'], players['playerKills']))
 
-        player_kill = pd.DataFrame(grouped_dict.items(), columns=['attackerSteamID', 'playerKills'])
+        player_kill = pd.DataFrame(grouped_dict.items(), columns=[
+                                   'attackerSteamID', 'playerKills'])
         player_kill['key'] = 'playerKills'
 
-        player_kill = self.pivoting_unpivoting(player_kill, ['attackerSteamID', 'key', 'playerKills'])
+        player_kill = self.pivoting_unpivoting(
+            player_kill, ['attackerSteamID', 'key', 'playerKills'])
         return player_kill.to_dict('records')
 
     def get_player_deaths(self, data):
@@ -370,18 +391,24 @@ class CsGoDemoParser():
             df = pd.DataFrame(game_round['kills'])
             player_death = pd.concat([player_death, df])
 
-        player_death = player_death.groupby(['victimSteamID', 'attackerSteamID'])['attackerSteamID'].count().reset_index(name="playerDeaths")
+        player_death = player_death.groupby(['victimSteamID', 'attackerSteamID'])[
+            'attackerSteamID'].count().reset_index(name="playerDeaths")
         for p in range(len(player_death)):
-            player_death.loc[p, 'attackerSteamID'] = player_death.loc[p, 'attackerSteamID'] if player_death.loc[p, 'attackerSteamID'] != 'None' else player_death.loc[p, 'victimSteamID']
+            player_death.loc[p, 'attackerSteamID'] = player_death.loc[p, 'attackerSteamID'] if player_death.loc[p,
+                                                                                                                'attackerSteamID'] != 'None' else player_death.loc[p, 'victimSteamID']
         grouped_dict = {}
         for attacker, group in player_death.groupby('victimSteamID'):
-            players = group[['attackerSteamID', 'playerDeaths']].to_dict(orient='list')
-            grouped_dict[attacker] = dict(zip(players['attackerSteamID'], players['playerDeaths']))
+            players = group[['attackerSteamID', 'playerDeaths']
+                            ].to_dict(orient='list')
+            grouped_dict[attacker] = dict(
+                zip(players['attackerSteamID'], players['playerDeaths']))
 
-        player_death = pd.DataFrame(grouped_dict.items(), columns=['victimSteamID', 'playerDeaths'])
+        player_death = pd.DataFrame(grouped_dict.items(), columns=[
+                                    'victimSteamID', 'playerDeaths'])
         player_death['key'] = 'playerDeaths'
 
-        player_death = self.pivoting_unpivoting(player_death, ['victimSteamID', 'key', 'playerDeaths'])
+        player_death = self.pivoting_unpivoting(
+            player_death, ['victimSteamID', 'key', 'playerDeaths'])
         return player_death.to_dict('records')
 
     def get_player_flashed(self, data):
@@ -391,17 +418,23 @@ class CsGoDemoParser():
             df = pd.DataFrame(game_round['flashes'])
             player_flashed = pd.concat([player_flashed, df])
 
-        player_flashed = player_flashed.groupby(['attackerSteamID', 'playerSteamID'])['flashDuration'].sum().reset_index(name="playerFlashed")
-        player_flashed['playerFlashed'] = round(player_flashed['playerFlashed'], 2)
+        player_flashed = player_flashed.groupby(['attackerSteamID', 'playerSteamID'])[
+            'flashDuration'].sum().reset_index(name="playerFlashed")
+        player_flashed['playerFlashed'] = round(
+            player_flashed['playerFlashed'], 2)
         grouped_dict = {}
         for attacker, group in player_flashed.groupby('attackerSteamID'):
-            players = group[['playerSteamID', 'playerFlashed']].to_dict(orient='list')
-            grouped_dict[attacker] = dict(zip(players['playerSteamID'], players['playerFlashed']))
+            players = group[['playerSteamID', 'playerFlashed']
+                            ].to_dict(orient='list')
+            grouped_dict[attacker] = dict(
+                zip(players['playerSteamID'], players['playerFlashed']))
 
-        player_flashed = pd.DataFrame(grouped_dict.items(), columns=['attackerSteamID', 'playerFlashed'])
+        player_flashed = pd.DataFrame(grouped_dict.items(), columns=[
+                                      'attackerSteamID', 'playerFlashed'])
         player_flashed['key'] = 'playerFlashed'
 
-        player_flashed = self.pivoting_unpivoting(player_flashed, ['attackerSteamID', 'key', 'playerFlashed'])
+        player_flashed = self.pivoting_unpivoting(
+            player_flashed, ['attackerSteamID', 'key', 'playerFlashed'])
         return player_flashed.to_dict('records')
 
     def get_flashed_by(self, data):
@@ -411,17 +444,22 @@ class CsGoDemoParser():
             df = pd.DataFrame(game_round['flashes'])
             flashed_by = pd.concat([flashed_by, df])
 
-        flashed_by = flashed_by.groupby(['playerSteamID', 'attackerSteamID'])['flashDuration'].sum().reset_index(name="flashedByPlayer")
+        flashed_by = flashed_by.groupby(['playerSteamID', 'attackerSteamID'])[
+            'flashDuration'].sum().reset_index(name="flashedByPlayer")
         flashed_by['flashedByPlayer'] = round(flashed_by['flashedByPlayer'], 2)
         grouped_dict = {}
         for attacker, group in flashed_by.groupby('playerSteamID'):
-            players = group[['attackerSteamID', 'flashedByPlayer']].to_dict(orient='list')
-            grouped_dict[attacker] = dict(zip(players['attackerSteamID'], players['flashedByPlayer']))
+            players = group[['attackerSteamID', 'flashedByPlayer']].to_dict(
+                orient='list')
+            grouped_dict[attacker] = dict(
+                zip(players['attackerSteamID'], players['flashedByPlayer']))
 
-        flashed_by = pd.DataFrame(grouped_dict.items(), columns=['playerSteamID', 'flashedByPlayer'])
+        flashed_by = pd.DataFrame(grouped_dict.items(), columns=[
+                                  'playerSteamID', 'flashedByPlayer'])
         flashed_by['key'] = 'flashedByPlayer'
 
-        flashed_by = self.pivoting_unpivoting(flashed_by, ['playerSteamID', 'key', 'flashedByPlayer'])
+        flashed_by = self.pivoting_unpivoting(
+            flashed_by, ['playerSteamID', 'key', 'flashedByPlayer'])
         return flashed_by.to_dict('records')
 
     def get_match_duration(self, seconds):
@@ -432,10 +470,14 @@ class CsGoDemoParser():
 
     def validate_tags(self, lstats):
         for player_stats in lstats:
-            player_stats['firstDeathsCt'] = int(player_stats.get('firstDeathsCt', 0))
-            player_stats['firstDeathsTr'] = int(player_stats.get('firstDeathsTr', 0))
-            player_stats['firstKillsCt'] = int(player_stats.get('firstKillsCt', 0))
-            player_stats['firstKillsTr'] = int(player_stats.get('firstKillsTr', 0))
+            player_stats['firstDeathsCt'] = int(
+                player_stats.get('firstDeathsCt', 0))
+            player_stats['firstDeathsTr'] = int(
+                player_stats.get('firstDeathsTr', 0))
+            player_stats['firstKillsCt'] = int(
+                player_stats.get('firstKillsCt', 0))
+            player_stats['firstKillsTr'] = int(
+                player_stats.get('firstKillsTr', 0))
             player_stats['hsDeaths'] = int(player_stats.get('hsDeaths', 0))
             player_stats['heDamage'] = int(player_stats.get('heDamage', 0))
             player_stats['fireDamage'] = int(player_stats.get('fireDamage', 0))
@@ -443,8 +485,10 @@ class CsGoDemoParser():
             player_stats['weaponDeaths'] = player_stats.get('weaponDeaths', {})
             player_stats['playerKills'] = player_stats.get('playerKills', {})
             player_stats['playerDeaths'] = player_stats.get('playerDeaths', {})
-            player_stats['playerFlashed'] = player_stats.get('playerFlashed', {})
-            player_stats['flashedByPlayer'] = player_stats.get('flashedByPlayer', {})
+            player_stats['playerFlashed'] = player_stats.get(
+                'playerFlashed', {})
+            player_stats['flashedByPlayer'] = player_stats.get(
+                'flashedByPlayer', {})
             player_stats['rws'] = round(player_stats.get('rws', 0), 2)
 
         return lstats
@@ -465,9 +509,10 @@ class CsGoDemoParser():
                     df['round'] = game_round['roundNum']
                     rws = pd.concat([rws, df])
 
-        rws = rws.groupby(['round', 'attackerSteamID', 'attackerTeam', 'roundEndReason', 'playerReason'])\
-            ['hpDamageTaken'].sum().reset_index(name="totDamageRound")
-        rws['sumDamageRound'] = rws.groupby('round')['totDamageRound'].transform('sum')
+        rws = rws.groupby(['round', 'attackerSteamID', 'attackerTeam', 'roundEndReason', 'playerReason'])[
+            'hpDamageTaken'].sum().reset_index(name="totDamageRound")
+        rws['sumDamageRound'] = rws.groupby(
+            'round')['totDamageRound'].transform('sum')
         rws['rws'] = (rws['totDamageRound'] / rws['sumDamageRound']) * 100
 
         new_df = pd.DataFrame(columns=rws.columns)
@@ -475,7 +520,8 @@ class CsGoDemoParser():
         added_rounds = set()
         for index, row in rws.iterrows():
             if row['playerReason'] != 'None' and row['round'] not in added_rounds:
-                current_round_rows = rws.loc[rws['round'] == row['round'], 'rws']
+                current_round_rows = rws.loc[rws['round']
+                                             == row['round'], 'rws']
                 for idx, value in current_round_rows.items():
                     rws.at[idx, 'rws'] = rws.at[idx, 'rws'] * 0.7
 
@@ -489,17 +535,19 @@ class CsGoDemoParser():
                     'sumDamageRound': row['sumDamageRound'],
                     'rws': 30.0
                 }
-                new_df = pd.concat([new_df, pd.DataFrame(new_row, index=[0])], ignore_index=True)
+                new_df = pd.concat([new_df, pd.DataFrame(
+                    new_row, index=[0])], ignore_index=True)
                 added_rounds.add(row['round'])
 
         rws = pd.concat([rws, new_df])
 
-        rws = rws.groupby(['attackerSteamID'])['rws'].sum().reset_index(name="rws")
+        rws = rws.groupby(['attackerSteamID'])[
+            'rws'].sum().reset_index(name="rws")
         rws['rws'] = rws['rws'] / len(data['gameRounds'])
         rws['rws'] = round(rws['rws'], 2)
         rws['key'] = 'rws'
 
-        rws = self.pivoting_unpivoting(rws,['attackerSteamID', 'key', 'rws'])
+        rws = self.pivoting_unpivoting(rws, ['attackerSteamID', 'key', 'rws'])
         return rws.to_dict('records')
 
     def cast_steamID_to_str(self, data):
