@@ -1,12 +1,5 @@
 #!/bin/bash
 
-# Cleaning
-# aws lambda delete-function --function-name xaxanalytics
-# sleep 5
-# aws ecr delete-repository --repository-name xaxanalytics --force
-
-
-
 # Creating
 docker build -t xaxanalytics .
 sleep 5

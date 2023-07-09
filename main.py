@@ -7,14 +7,10 @@ import time
 
 
 def run(diretorio, output_path):
-    print("[DVS] - Starting download from FTP")
     downloader = DownloadFTP()
-    print("[DVS] - diretorio: "+diretorio)
-    print("[DVS] - output_path: "+output_path)
     downloader.download_demos(diretorio)
 
     arquivos = os.listdir(diretorio)
-    print("[DVS] - arquivos: "+str(arquivos))
 
     # Percorrer todos os arquivos
     for arquivo in arquivos:
@@ -53,14 +49,20 @@ def run(diretorio, output_path):
 
 
 if __name__ == "__main__":
-    # diretorio = "demos/"
-    # output_path = "output/"
-    diretorio = "/tmp/demos/"
-    output_path = "/tmp/output/"
+    diretorio = ""
+    output_path = ""
+    if os.environ.get('xaxanalytics_env', False) == "PRD":
+        print("Running in PRD envinroment!!!")
+        diretorio = "/tmp/demos/"
+        output_path = "/tmp/output/"
+    else:
+        diretorio = "demos/"
+        output_path = "output/"
     run(diretorio, output_path)
 
 
 def handler(event, context):
+    print("[DVS] - I'm in handler method")
     start_date = time.time()
     diretorio = "/tmp/demos/"
     output_path = "/tmp/output/"

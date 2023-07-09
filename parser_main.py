@@ -25,7 +25,6 @@ class CsGoDemoParser():
         self.file_name = demo_file[6:]
         self.output_path = output
         if not os.path.exists(output):
-            print("[DVS] path "+output+" doesn't existe")
             os.makedirs(output)
 
         # Parsing the demo file using the DemoParser from awpy lib

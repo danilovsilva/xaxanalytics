@@ -5,7 +5,7 @@ LABEL version="1.0"
 LABEL maintainer="danilovsilva@outlook.com"
 
 # Environment variable to set as PRD or DEV
-ENV env PRD
+ENV xaxanalytics_env PRD
 
 # install common software
 RUN apt-get update
