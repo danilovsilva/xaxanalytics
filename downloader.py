@@ -8,7 +8,7 @@ class DownloadFTP():
     def download_demos(self, path):
 
         # Conectando ao servidor FTP
-        ftp = ftplib.FTP('ftp.maggie.hostzone.games')
+        ftp = ftplib.FTP('ftp.bart.hostzone.games')
         ftp.login(userftp, passwdftp)
 
         # Navegando para o diretório onde estão os arquivos .dem
